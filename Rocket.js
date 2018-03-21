@@ -5,10 +5,13 @@ const H = window.innerHeight;
 canvas.width = W;
 canvas.height = H;
 
+let keysDown = [];
+
 let plr = {
 	x:W/2,
 	y:H/2,
 	s:20,
+	speed: 3,
 	ang: Math.PI*1.5,
 	draw: function(){
 		let point1 = pointOnCircle(this.x,this.y,this.s,0 + this.ang);
@@ -22,19 +25,34 @@ let plr = {
 		c.lineTo(point3.x,point3.y);
 		c.fill();
 		c.closePath();
+	},
+	
+	move: function(){
+		this.x += this.speed * Math.cos(this.ang);
+		this.y += this.speed * Math.sin(this.ang);
 	}
 }
 
 function loop(){
 	c.clearRect(0,0,W,H);
+	controls();
+	
 	plr.draw();
-	plr.ang+= 0.01;
+	
 	requestAnimationFrame(loop);
 }
-drawCircle(50,50,50,'blue');
-let newPoint = pointOnCircle(50,50,50,Math.PI/2);
-drawCircle(newPoint.x,newPoint.y,2,'red');
-plr.draw();
+function controls(){
+	if (keysDown[65]){ // 'a' key
+		plr.ang -= 0.05;
+	}
+	if (keysDown[68]){ // 'd' key
+		plr.ang += 0.05;
+	}
+	if (keysDown[87]){ // 'w' key
+		plr.move();
+	}
+}
+
 function drawCircle(x,y,r,col){
 	c.beginPath();
 	c.fillStyle = col;
@@ -47,4 +65,14 @@ function pointOnCircle(x,y,r,ang){
 	let newY = y + (r * Math.sin(ang));
 	return {x:newX,y:newY};
 }
+
+
+
+addEventListener('keydown', function(e){
+	keysDown[e.keyCode] = true;
+});
+addEventListener('keyup', function(e){
+	delete keysDown[e.keyCode];
+});
+
 loop();
