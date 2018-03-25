@@ -6,8 +6,12 @@ canvas.width = W;
 canvas.height = H;
 
 let keysDown = [];
+
 let particles = [];
+let lasers = [];
 let asteroids = [];
+
+let sounds = [];
 
 function Asteroid(x,y,r,vel){
 	this.x = x;
@@ -28,8 +32,47 @@ function Asteroid(x,y,r,vel){
 		this.y += this.vel.y;
 	}
 }
-function Laser(x,y,length,ang,col){
+function Laser(x,y,length,speed,ang,col){
+	this.x = x;
+	this.y = y;
+	this.len = length;
+	this.r = length;
+	this.spd = speed;
+	this.ang = ang;
+	this.col = col;
 	
+	this.draw = function(){
+		c.beginPath();
+		c.strokeStyle = this.col;
+		c.moveTo(this.x,this.y);
+		let point = this.secondPoint();
+		c.lineTo(point.x,point.y);
+		c.stroke();
+		c.closePath();
+	}
+	
+	//moves the distance of this.spd
+	this.move = function(){
+		let newPoint = pointOnCircle(this.x,this.y,this.spd,this.ang); 
+		this.x = newPoint.x;
+		this.y = newPoint.y;
+	}
+	
+	//returns x and y of second point. used to decrease ambiguity
+	this.secondPoint = function(){
+		return pointOnCircle(this.x,this.y,this.len,this.ang);
+	}
+	
+	//returns coordinates of points for use in line-circle collision
+	this.getPoints = function(){
+		let secondPoint = this.secondPoint();
+		return {
+			x1:this.x,
+			y1:this.y,
+			x2:secondPoint.x,
+			y2:secondPoint.y
+		};
+	}
 }
 
 
@@ -129,6 +172,10 @@ let plr = {
 				lineCircleCollision({x1:point1.x,y1:point1.y,x2:point3.x,y2:point3.y},circle) ||
 				lineCircleCollision({x1:point2.x,y1:point2.y,x2:point3.x,y2:point3.y},circle));
 	},
+	
+	//first point is the front, 
+	//second point is next point clockwise
+	//third is point closest to second
 	getPoints: function(){
 		return [
 			pointOnCircle(this.x,this.y,this.r,0 + this.ang),
@@ -139,10 +186,19 @@ let plr = {
 	move: function(){
 		this.x += this.vel.x;
 		this.y += this.vel.y;
+	},
+	shoot: function(){
+		let laserLoc = this.getPoints()[0];
+		let newLaser = new Laser(laserLoc.x,laserLoc.y,20,10,this.ang,'rgb(42,255,0)');
+		lasers.push(newLaser);
 	}
 }
 
 function initialize(){
+	sounds['laser'] = new Audio('Laser.mp3');
+	sounds['laser'].volume = 0;
+	sounds['laser'].play();
+	
 	for (let i = 0; i < 30; i++){
 		let velX = rand(1,-1);
 		let velY = rand(1,-1);
@@ -157,17 +213,23 @@ function loop(){
 	c.fillStyle = 'black';
 	c.fillRect(0,0,W,H);
 	controls();
+	for (let particle of particles){
+		particle.draw();
+	}
+	
+	for (let laser of lasers){
+		laser.draw();
+	}
+	
 	for (let asteroid of asteroids){
 		asteroid.draw();
 	}
 	
-	for (let particle of particles){
-		particle.draw();
-	}
 	plr.draw();
 	update();
 	requestAnimationFrame(loop);
 }
+
 function update(){
 	
 	plr.x += plr.vel.x;
@@ -177,15 +239,6 @@ function update(){
 	//Screen wrapping
 	screenWrap(plr);
 	
-	
-	for (let asteroid of asteroids){
-		asteroid.move();
-		if (plr.circleCollision(asteroid)){
-			console.log('collision');
-		}
-		screenWrap(asteroid);
-	}
-	
 	for (let i = 0; i < particles.length; i++){
 		let particle = particles[i];
 		particle.update();
@@ -194,6 +247,38 @@ function update(){
 			i--;
 		}
 		screenWrap(particle);
+	}
+	
+	laserLoop: for (let i = 0; i < lasers.length; i++){
+		let laser = lasers[i];
+		laser.move();
+		if (outsideScreen(laser)){
+			removeLaser();
+			continue laserLoop;
+		}
+		for (let j = 0; j < asteroids.length; j++){
+			let asteroid = asteroids[j];
+			if (getDist(laser.x,laser.y,asteroid.x,asteroid.y) < asteroid.r + laser.r &&
+				lineCircleCollision(laser.getPoints(),asteroid)){
+				
+				asteroids.splice(j,1);
+				j--;
+				removeLaser();
+				continue laserLoop;
+			}
+		}
+		function removeLaser(){
+			lasers.splice(i,1);
+			i--;
+		}
+	}
+	
+	for (let asteroid of asteroids){
+		asteroid.move();
+		if (plr.circleCollision(asteroid)){
+			console.log('collision');
+		}
+		screenWrap(asteroid);
 	}
 }
 
@@ -213,6 +298,14 @@ function screenWrap(obj){
 	}
 }
 
+//returns true if obj is outside of screen (must have x y and r attributes)
+function outsideScreen(obj){
+	return (obj.x - obj.r > W ||
+			obj.x < -obj.r ||
+			obj.y - obj.r > H || 
+			obj.y < -obj.r)
+}
+
 //deals with controls
 function controls(){
 	if (keysDown[65]){ // 'a' key
@@ -223,6 +316,13 @@ function controls(){
 	}
 	if (keysDown[87]){ // 'w' key
 		plr.blast();
+	}
+	if (keysDown[32]){ // space bar
+		if (sounds['laser'].ended){
+			sounds['laser'].volume = 0.05;
+			sounds['laser'].play();
+			plr.shoot();
+		}
 	}
 }
 
@@ -293,13 +393,6 @@ function rand(max,min = 0){
 
 
 addEventListener('keydown', function(e){
-	switch (e.keyCode){
-		case 32:{
-			plr.shoot();
-			break;
-		}
-	}
-	
 	keysDown[e.keyCode] = true;
 });
 addEventListener('keyup', function(e){
