@@ -76,14 +76,16 @@ function Laser(x,y,length,speed,ang,col){
 }
 
 
-function Particle(x,y,r,col,vel,life){
+function Particle(x,y,r,col,vel,life,smoothFade = true){
 	this.x = x;
 	this.y = y;
 	this.r = r;
 	this.col = col;
 	
 	this.vel = vel;
+	this.maxLife = life;
 	this.life = life;
+	this.smoothFade = smoothFade;
 	
 	this.draw = function(){
 		this.col = this.constructCol();
@@ -95,7 +97,13 @@ function Particle(x,y,r,col,vel,life){
 		this.y += this.vel.y;
 		
 		//change transparency
-		this.colParts.alpha /= 1.1;
+		if (this.smoothFade){
+			this.colParts.alpha /= 1.1;
+		}
+		else{
+			this.colParts.alpha = this.life / this.maxLife;
+		}
+		
 		
 		
 		//decrease lifespan
@@ -152,7 +160,7 @@ let plr = {
 			let velY = -vector.y + rand(0.5,-0.5) + this.vel.y;
 			let color = 'rgba(255,0,0,1)';
 			
-			let newParticle = new Particle(location.x,location.y,4,color,{x:velX,y:velY},50);
+			let newParticle = new Particle(location.x,location.y,4,color,{x:velX,y:velY},50,true);
 			particles.push(newParticle);
 		}
 		
@@ -191,6 +199,29 @@ let plr = {
 		let laserLoc = this.getPoints()[0];
 		let newLaser = new Laser(laserLoc.x,laserLoc.y,20,10,this.ang,'rgb(42,255,0)');
 		lasers.push(newLaser);
+		
+		//generate particles
+		
+		
+		
+		for (let i = 0; i < 10; i++){
+			
+			//add a little variation in the particle's angle and speed
+			let extraAng = rand(Math.PI/12,-Math.PI/12);
+			let extraSpd = rand(2,-2);
+			//particle vector is speed of the particles relative to the ship
+			let particleVector = toComponents(5 + extraSpd,this.ang + extraAng);
+			
+			
+			//newVel combines the relative speed with the actual speed
+			let newVel = {
+				x:this.vel.x + particleVector.x,
+				y:this.vel.y + particleVector.y
+			}
+			
+			let newParticle = new Particle(laserLoc.x,laserLoc.y,1,'rgba(42,255,0,0.125)',newVel,10,false);
+			particles.push(newParticle);
+		}
 	}
 }
 
@@ -199,7 +230,7 @@ function initialize(){
 	sounds['laser'].volume = 0;
 	sounds['laser'].play();
 	
-	for (let i = 0; i < 30; i++){
+	for (let i = 0; i < 60; i++){
 		let velX = rand(1,-1);
 		let velY = rand(1,-1);
 		let newAsteroid = new Asteroid(rand(W-100,100),rand(H-100,100),rand(30,5),{x:velX,y:velY});
@@ -319,7 +350,7 @@ function controls(){
 	}
 	if (keysDown[32]){ // space bar
 		if (sounds['laser'].ended){
-			sounds['laser'].volume = 0.05;
+			sounds['laser'].volume = 0.02;
 			sounds['laser'].play();
 			plr.shoot();
 		}
@@ -398,5 +429,10 @@ addEventListener('keydown', function(e){
 addEventListener('keyup', function(e){
 	delete keysDown[e.keyCode];
 });
+
+//disable right clicking on accident
+addEventListener('contextmenu', function(e){
+	e.preventDefault();
+})
 
 initialize();
