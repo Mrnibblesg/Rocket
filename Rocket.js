@@ -18,6 +18,7 @@ function Asteroid(x,y,r,vel){
 	this.y = y;
 	this.r = r;
 	this.vel = vel;
+	this.health = Math.ceil(r / 5) - 1;
 	this.col = 'gray';
 	
 	this.draw = function(){
@@ -30,6 +31,27 @@ function Asteroid(x,y,r,vel){
 	this.move = function(){
 		this.x += this.vel.x;
 		this.y += this.vel.y;
+	}
+	this.burst = function(){
+		//create 2-3 smaller asteroids
+		if (this.r <= 10){
+			return [];
+		}
+		
+		//choose 2 or 3 asteroids to create
+		let amt = Math.ceil(rand(3,1));
+		let newAsteroids = [];
+		for (let i = 0; i < amt; i++){
+			
+			//choose a new direction
+			//the new random angle does not depend on what this one is already
+			let newAngle = (2*Math.PI)*(i/amt) + rand(Math.PI/2,-Math.PI/2);
+			let newVel = toComponents(getDist(0,0,this.vel.x,this.vel.y),newAngle);
+			
+			let newAsteroid = new Asteroid(this.x,this.y,this.r - 6,newVel);
+			newAsteroids.push(newAsteroid);
+		}
+		return newAsteroids;
 	}
 }
 function Laser(x,y,length,speed,ang,col){
@@ -75,7 +97,6 @@ function Laser(x,y,length,speed,ang,col){
 	}
 }
 
-
 function Particle(x,y,r,col,vel,life,smoothFade = true){
 	this.x = x;
 	this.y = y;
@@ -104,11 +125,10 @@ function Particle(x,y,r,col,vel,life,smoothFade = true){
 			this.colParts.alpha = this.life / this.maxLife;
 		}
 		
-		
-		
 		//decrease lifespan
 		this.life--;
 	};
+	
 	this.getCols = function(col){
 		let cols = col.substring(col.indexOf('(')+1,col.length-1).split(',');
 		return {red:+cols[0],green:+cols[1],blue:+cols[2],alpha:+cols[3]};
@@ -130,6 +150,10 @@ let plr = {
 	r:20,
 	speed: 0.1,
 	ang: Math.PI*1.5,
+	
+	delayMax: 20,
+	shootDelay: 0,
+	
 	draw: function(){
 		//the ship's corners
 		let points = this.getPoints();
@@ -196,6 +220,15 @@ let plr = {
 		this.y += this.vel.y;
 	},
 	shoot: function(){
+		//you cant shoot if the delay isnt done yet
+		if (this.shootDelay > 0){
+			return;
+		}
+		
+		//play sound
+		sounds['laser'].volume = 0.02;
+		sounds['laser'].play();
+		
 		let laserLoc = this.getPoints()[0];
 		let newLaser = new Laser(laserLoc.x,laserLoc.y,20,10,this.ang,'rgb(42,255,0)');
 		lasers.push(newLaser);
@@ -222,6 +255,7 @@ let plr = {
 			let newParticle = new Particle(laserLoc.x,laserLoc.y,1,'rgba(42,255,0,0.125)',newVel,10,false);
 			particles.push(newParticle);
 		}
+		this.shootDelay = this.delayMax;
 	}
 }
 
@@ -230,7 +264,7 @@ function initialize(){
 	sounds['laser'].volume = 0;
 	sounds['laser'].play();
 	
-	for (let i = 0; i < 60; i++){
+	for (let i = 0; i < 30; i++){
 		let velX = rand(1,-1);
 		let velY = rand(1,-1);
 		let newAsteroid = new Asteroid(rand(W-100,100),rand(H-100,100),rand(30,5),{x:velX,y:velY});
@@ -270,6 +304,11 @@ function update(){
 	//Screen wrapping
 	screenWrap(plr);
 	
+	//Decrease shooting delay
+	if (plr.shootDelay > 0){
+		plr.shootDelay--;
+	}
+	
 	for (let i = 0; i < particles.length; i++){
 		let particle = particles[i];
 		particle.update();
@@ -292,8 +331,7 @@ function update(){
 			if (getDist(laser.x,laser.y,asteroid.x,asteroid.y) < asteroid.r + laser.r &&
 				lineCircleCollision(laser.getPoints(),asteroid)){
 				
-				asteroids.splice(j,1);
-				j--;
+				asteroid.health--;
 				removeLaser();
 				continue laserLoop;
 			}
@@ -304,10 +342,17 @@ function update(){
 		}
 	}
 	
-	for (let asteroid of asteroids){
+	for (let i = 0; i < asteroids.length; i++){
+		let asteroid = asteroids[i];
+		
 		asteroid.move();
 		if (plr.circleCollision(asteroid)){
 			console.log('collision');
+		}
+		if (asteroid.health <= 0){
+			asteroids = asteroids.concat(asteroid.burst());
+			asteroids.splice(i,1);
+			continue;
 		}
 		screenWrap(asteroid);
 	}
@@ -350,8 +395,6 @@ function controls(){
 	}
 	if (keysDown[32]){ // space bar
 		if (sounds['laser'].ended){
-			sounds['laser'].volume = 0.02;
-			sounds['laser'].play();
 			plr.shoot();
 		}
 	}
@@ -414,6 +457,14 @@ function getDist(x1,y1,x2,y2){
 //returns an object with x and y components of the vector
 function toComponents(mag,ang){
 	return {x:mag*Math.cos(ang),y:mag*Math.sin(ang)};
+}
+
+//takes x and y components
+//returns a magnitude and angle
+function toMagAng(x,y){
+	let magnitude = getDist(0,0,x,y);
+	let angle = Math.cos(x/magnitude);
+	return {mag:magnitude,ang:angle};
 }
 
 //returns random number in given range
