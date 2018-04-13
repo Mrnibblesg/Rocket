@@ -13,6 +13,7 @@ let asteroids = [];
 
 let sounds = [];
 
+
 function Asteroid(x,y,r,vel){
 	this.x = x;
 	this.y = y;
@@ -97,7 +98,7 @@ function Laser(x,y,length,speed,ang,col){
 	}
 }
 
-function Particle(x,y,r,col,vel,life,smoothFade = true){
+function Particle(x,y,r,col,vel,life,smoothFade = true,specialFunc){
 	this.x = x;
 	this.y = y;
 	this.r = r;
@@ -107,6 +108,9 @@ function Particle(x,y,r,col,vel,life,smoothFade = true){
 	this.maxLife = life;
 	this.life = life;
 	this.smoothFade = smoothFade;
+	
+	//a special function to run
+	this.special = specialFunc;
 	
 	this.draw = function(){
 		this.col = this.constructCol();
@@ -127,6 +131,9 @@ function Particle(x,y,r,col,vel,life,smoothFade = true){
 		
 		//decrease lifespan
 		this.life--;
+		if (this.special){
+			this.special();
+		}
 	};
 	
 	this.getCols = function(col){
@@ -182,9 +189,13 @@ let plr = {
 			let vector = toComponents(2,this.ang);
 			let velX = -vector.x + rand(0.5,-0.5) + this.vel.x;
 			let velY = -vector.y + rand(0.5,-0.5) + this.vel.y;
-			let color = 'rgba(255,0,0,1)';
+			let color = 'rgba(255,250,0,1)';
 			
-			let newParticle = new Particle(location.x,location.y,4,color,{x:velX,y:velY},50,true);
+			let newParticle = new Particle(location.x,location.y,4,color,{x:velX,y:velY},50,true,
+			function(){
+				this.colParts.green = Math.floor(this.colParts.green/1.2);
+				console.log(this.colParts.green);
+			});
 			particles.push(newParticle);
 		}
 		
