@@ -1,9 +1,13 @@
 const canvas = document.getElementById("myCanvas");
+const scoreBoard = document.getElementById("scoreBoard");
+const hud = scoreBoard.getContext("2d");
 const c = canvas.getContext("2d");
 const W = window.innerWidth;
 const H = window.innerHeight;
 canvas.width = W;
 canvas.height = H;
+scoreBoard.width = W;
+scoreBoard.height = H;
 
 let keysDown = [];
 
@@ -13,6 +17,8 @@ let asteroids = [];
 
 let sounds = [];
 
+let score = 0;
+let prevScore;
 
 function Asteroid(x,y,r,vel){
 	this.x = x;
@@ -20,6 +26,9 @@ function Asteroid(x,y,r,vel){
 	this.r = r;
 	this.vel = vel;
 	this.health = Math.ceil(r / 5) - 1;
+	
+	//11 is just an arbitrary number
+	this.scoreVal = 2 * (11-this.health);
 	this.col = 'gray';
 	
 	this.draw = function(){
@@ -33,6 +42,8 @@ function Asteroid(x,y,r,vel){
 		this.x += this.vel.x;
 		this.y += this.vel.y;
 	}
+	
+	//returns an array of smaller asteroids
 	this.burst = function(){
 		//create 2-3 smaller asteroids
 		if (this.r <= 10){
@@ -53,6 +64,11 @@ function Asteroid(x,y,r,vel){
 			newAsteroids.push(newAsteroid);
 		}
 		return newAsteroids;
+	}
+	
+	//returns score value
+	this.getValue = function(){
+		return this.scoreVal;
 	}
 }
 function Laser(x,y,length,speed,ang,col){
@@ -97,13 +113,11 @@ function Laser(x,y,length,speed,ang,col){
 		};
 	}
 }
-
 function Particle(x,y,r,col,vel,life,smoothFade = true,specialFunc){
 	this.x = x;
 	this.y = y;
 	this.r = r;
-	this.col = col;
-	
+	this.col = Color.createFromRgba(col);//new Color(col);
 	this.vel = vel;
 	this.maxLife = life;
 	this.life = life;
@@ -113,8 +127,8 @@ function Particle(x,y,r,col,vel,life,smoothFade = true,specialFunc){
 	this.special = specialFunc;
 	
 	this.draw = function(){
-		this.col = this.constructCol();
-		drawCircle(this.x,this.y,this.r,this.col);
+		const color = this.col.constructCol();
+		drawCircle(this.x,this.y,this.r,color);
 	};
 	this.update = function(){
 		//change position
@@ -123,28 +137,47 @@ function Particle(x,y,r,col,vel,life,smoothFade = true,specialFunc){
 		
 		//change transparency
 		if (this.smoothFade){
-			this.colParts.alpha /= 1.1;
+			this.col.a /= 1.1;
 		}
 		else{
-			this.colParts.alpha = this.life / this.maxLife;
+			this.col.a = this.life / this.maxLife;
 		}
 		
 		//decrease lifespan
 		this.life--;
+		
+		//special function, parameter to do something special to the particle
 		if (this.special){
 			this.special();
 		}
 	};
+}
+
+//display
+let dis = {
+	score: 0,
+	prevScore: undefined,
 	
-	this.getCols = function(col){
-		let cols = col.substring(col.indexOf('(')+1,col.length-1).split(',');
-		return {red:+cols[0],green:+cols[1],blue:+cols[2],alpha:+cols[3]};
-	};
-	this.constructCol = function(){
-		return 'rgba(' + this.colParts.red + ',' + this.colParts.green + ',' + this.colParts.blue + ',' + this.colParts.alpha + ')';
+	lives: 3,
+	prevLives: undefined,
+	
+	//Draw all information
+	draw: function(){
+		hud.fillStyle = 'white';
+		hud.strokeStyle = 'black';
+		hud.font = '20px Verdana';
+		
+		if (this.score != this.prevScore){
+			this.prevScore = this.score;
+			hud.clearRect(0,0,200,200);
+			hud.fillText('Score: '+ this.score,15,15);
+		}
+		if (this.lives != this.prevLives){
+			this.prevLives = this.lives;
+			hud.clearRect(W-200,0,200,200);
+			hud.fillText('Lives: '+ this.lives,W-185,15);
+		}
 	}
-	
-	this.colParts = this.getCols(col);
 }
 
 let plr = {
@@ -158,8 +191,15 @@ let plr = {
 	speed: 0.1,
 	ang: Math.PI*1.5,
 	
+	col: Color.createFromRgba('rgba(0,0,255,1)'),
+	
+	
 	delayMax: 20,
 	shootDelay: 0,
+	
+	invincible: false,
+	maxInvinTimer: 0,
+	invinTimer: 0,
 	
 	draw: function(){
 		//the ship's corners
@@ -167,10 +207,20 @@ let plr = {
 		let point1 = points[0];
 		let point2 = points[1];
 		let point3 = points[2];
+		let drawCol = this.col.constructCol();
+		
+		
+		if (this.invincible){
+			let flash = Math.ceil(125*(this.invinTimer/this.maxInvinTimer));
+			this.col.r = flash;
+			this.col.g = flash;
+			drawCol = this.col.constructCol();
+		}
+		
 		
 		c.beginPath();
 		c.strokeStyle = 'white';
-		c.fillStyle = 'blue';
+		c.fillStyle = drawCol;
 		c.moveTo(point1.x,point1.y);
 		c.lineTo(point2.x,point2.y);
 		c.lineTo(point3.x,point3.y);
@@ -178,6 +228,36 @@ let plr = {
 		c.fill();
 		c.stroke();
 		c.closePath();
+	},
+	update: function(){
+		plr.x += plr.vel.x;
+		plr.y += plr.vel.y;
+		if (plr.invincible){
+			if (plr.invinTimer == 0){
+				plr.invincible = false;
+			}
+			else{
+				plr.invinTimer--;
+			}
+		}
+		
+		//Screen wrapping
+		screenWrap(plr);
+		
+		//Decrease shooting delay
+		if (plr.shootDelay > 0){
+			plr.shootDelay--;
+		}
+	},
+	
+	setInvincible: function(time){
+		if (time === 0){
+			return;
+		}
+		
+		this.invincible = true;
+		this.invinTimer = time;
+		this.maxInvinTimer = time;
 	},
 	
 	blast: function(){
@@ -193,8 +273,7 @@ let plr = {
 			
 			let newParticle = new Particle(location.x,location.y,4,color,{x:velX,y:velY},50,true,
 			function(){
-				this.colParts.green = Math.floor(this.colParts.green/1.2);
-				console.log(this.colParts.green);
+				this.col.g = Math.floor(this.col.g/1.2);
 			});
 			particles.push(newParticle);
 		}
@@ -302,23 +381,16 @@ function loop(){
 	}
 	
 	plr.draw();
+	
+	
+	dis.draw();
 	update();
 	requestAnimationFrame(loop);
 }
 
 function update(){
 	
-	plr.x += plr.vel.x;
-	plr.y += plr.vel.y;
-	//plr.vel.y += 0.02;
-	
-	//Screen wrapping
-	screenWrap(plr);
-	
-	//Decrease shooting delay
-	if (plr.shootDelay > 0){
-		plr.shootDelay--;
-	}
+	plr.update();
 	
 	for (let i = 0; i < particles.length; i++){
 		let particle = particles[i];
@@ -357,10 +429,13 @@ function update(){
 		let asteroid = asteroids[i];
 		
 		asteroid.move();
-		if (plr.circleCollision(asteroid)){
+		if (!plr.invincible && plr.circleCollision(asteroid)){
+			dis.lives--;
+			plr.setInvincible(150);
 			console.log('collision');
 		}
 		if (asteroid.health <= 0){
+			dis.score += asteroid.getValue();
 			asteroids = asteroids.concat(asteroid.burst());
 			asteroids.splice(i,1);
 			continue;
@@ -461,7 +536,7 @@ function lineCircleCollision(points,circle){
 function getDist(x1,y1,x2,y2){
 	let dx = x2 - x1;
 	let dy = y2 - y1;
-	return Math.sqrt(dx * dx + dy * dy);
+	return Math.sqrt(dx ** 2 + dy ** 2);
 }
 
 //takes a magnitude and angle
@@ -471,7 +546,7 @@ function toComponents(mag,ang){
 }
 
 //takes x and y components
-//returns a magnitude and angle
+//returns an object containing the magnitude and angle as mag and ang
 function toMagAng(x,y){
 	let magnitude = getDist(0,0,x,y);
 	let angle = Math.cos(x/magnitude);
