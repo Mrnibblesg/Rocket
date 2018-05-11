@@ -2,8 +2,8 @@ const canvas = document.getElementById("myCanvas");
 const scoreBoard = document.getElementById("scoreBoard");
 const hud = scoreBoard.getContext("2d");
 const c = canvas.getContext("2d");
-const W = window.innerWidth;
-const H = window.innerHeight;
+const W = 900;
+const H = 900;
 canvas.width = W;
 canvas.height = H;
 scoreBoard.width = W;
@@ -24,7 +24,12 @@ function Asteroid(x,y,r,vel){
 	this.x = x;
 	this.y = y;
 	this.r = r;
+    
+    this.rotation = 0;
 	this.vel = vel;
+    
+    this.points = Asteroid.roughen(this.r);
+    
 	this.health = Math.ceil(r / 5) - 1;
 	
 	//11 is just an arbitrary number
@@ -34,9 +39,23 @@ function Asteroid(x,y,r,vel){
 	this.draw = function(){
 		c.beginPath();
 		c.fillStyle = this.col;
-		c.arc(this.x,this.y,this.r,0,2*Math.PI);
-		c.fill();
-		c.closePath();
+        c.strokeStyle = 'white';
+        
+        let coord = pointOnCircle(this.x,this.y,this.points[0],this.rotation);
+        c.moveTo(coord.x,coord.y);
+        
+        for (let i = 1; i < this.points.length; i++){
+            coord = pointOnCircle(this.x,this.y,this.points[i],(i/this.points.length) * (2*Math.PI) + this.rotation);
+            c.lineTo(coord.x,coord.y);
+        }
+        
+        coord = pointOnCircle(this.x,this.y,this.points[0],this.rotation);
+        c.lineTo(coord.x,coord.y);
+        c.fill();
+        c.stroke();
+        
+        
+        this.rotation += this.vel.rot;
 	}
 	this.move = function(){
 		this.x += this.vel.x;
@@ -59,8 +78,9 @@ function Asteroid(x,y,r,vel){
 			//the new random angle does not depend on what this one is already
 			let newAngle = (2*Math.PI)*(i/amt) + rand(Math.PI/2,-Math.PI/2);
 			let newVel = toComponents(getDist(0,0,this.vel.x,this.vel.y),newAngle);
-			
-			let newAsteroid = new Asteroid(this.x,this.y,this.r - 6,newVel);
+            let newRadius = this.r - 6
+			newVel.rot = rand(1/newRadius,-1/newRadius);
+			let newAsteroid = new Asteroid(this.x,this.y,newRadius,newVel);
 			newAsteroids.push(newAsteroid);
 		}
 		return newAsteroids;
@@ -70,6 +90,21 @@ function Asteroid(x,y,r,vel){
 	this.getValue = function(){
 		return this.scoreVal;
 	}
+}
+
+//takes a radius
+//returns an array of radii to be connected in order by a line
+Asteroid.roughen = function(r){
+    let asteroidEdges = [];
+    const points = r / 2;
+    
+    let distance = r+1;
+    for (let i = 0; i < points; i++){
+        let magnitude = toMagAng(distance*Math.cos(i/points),distance*Math.sin(i/points)).mag;
+        magnitude += rand(magnitude/10,-magnitude/10);
+        asteroidEdges.push(magnitude);
+    }
+    return asteroidEdges;
 }
 function Laser(x,y,length,speed,ang,col){
 	this.x = x;
@@ -180,184 +215,18 @@ let dis = {
 	}
 }
 
-let plr = {
-	x:W/2,
-	y:H/2,
-	vel: {
-		x: 0,
-		y: 0
-	},
-	r:20,
-	speed: 0.1,
-	ang: Math.PI*1.5,
-	
-	col: Color.createFromRgba('rgba(0,0,255,1)'),
-	
-	
-	delayMax: 20,
-	shootDelay: 0,
-	
-	invincible: false,
-	maxInvinTimer: 0,
-	invinTimer: 0,
-	
-	draw: function(){
-		//the ship's corners
-		let points = this.getPoints();
-		let point1 = points[0];
-		let point2 = points[1];
-		let point3 = points[2];
-		let drawCol = this.col.constructCol();
-		
-		
-		if (this.invincible){
-			let flash = Math.ceil(125*(this.invinTimer/this.maxInvinTimer));
-			this.col.r = flash;
-			this.col.g = flash;
-			drawCol = this.col.constructCol();
-		}
-		
-		
-		c.beginPath();
-		c.strokeStyle = 'white';
-		c.fillStyle = drawCol;
-		c.moveTo(point1.x,point1.y);
-		c.lineTo(point2.x,point2.y);
-		c.lineTo(point3.x,point3.y);
-		c.lineTo(point1.x,point1.y);
-		c.fill();
-		c.stroke();
-		c.closePath();
-	},
-	update: function(){
-		plr.x += plr.vel.x;
-		plr.y += plr.vel.y;
-		if (plr.invincible){
-			if (plr.invinTimer == 0){
-				plr.invincible = false;
-			}
-			else{
-				plr.invinTimer--;
-			}
-		}
-		
-		//Screen wrapping
-		screenWrap(plr);
-		
-		//Decrease shooting delay
-		if (plr.shootDelay > 0){
-			plr.shootDelay--;
-		}
-	},
-	
-	setInvincible: function(time){
-		if (time === 0){
-			return;
-		}
-		
-		this.invincible = true;
-		this.invinTimer = time;
-		this.maxInvinTimer = time;
-	},
-	
-	blast: function(){
-		this.vel.x += this.speed * Math.cos(this.ang);
-		this.vel.y += this.speed * Math.sin(this.ang);
-		
-		let location = pointOnCircle(this.x,this.y,this.r - 5,Math.PI + this.ang);
-		for (let i = 0; i < 3; i++){
-			let vector = toComponents(2,this.ang);
-			let velX = -vector.x + rand(0.5,-0.5) + this.vel.x;
-			let velY = -vector.y + rand(0.5,-0.5) + this.vel.y;
-			let color = 'rgba(255,250,0,1)';
-			
-			let newParticle = new Particle(location.x,location.y,4,color,{x:velX,y:velY},50,true,
-			function(){
-				this.col.g = Math.floor(this.col.g/1.2);
-			});
-			particles.push(newParticle);
-		}
-		
-	},
-	
-	circleCollision: function(circle){
-		if (getDist(this.x,this.y,circle.x,circle.y) > this.r + circle.r){
-			return false;
-		}
-		//the ship's corners
-		let points = this.getPoints();
-		let point1 = points[0];
-		let point2 = points[1];
-		let point3 = points[2];
-		
-		return (lineCircleCollision({x1:point1.x,y1:point1.y,x2:point2.x,y2:point2.y},circle) ||
-				lineCircleCollision({x1:point1.x,y1:point1.y,x2:point3.x,y2:point3.y},circle) ||
-				lineCircleCollision({x1:point2.x,y1:point2.y,x2:point3.x,y2:point3.y},circle));
-	},
-	
-	//first point is the front, 
-	//second point is next point clockwise
-	//third is point closest to second
-	getPoints: function(){
-		return [
-			pointOnCircle(this.x,this.y,this.r,0 + this.ang),
-			pointOnCircle(this.x,this.y,this.r,5*Math.PI/6 + this.ang),
-			pointOnCircle(this.x,this.y,this.r,7*Math.PI/6 + this.ang)
-		];
-	},
-	move: function(){
-		this.x += this.vel.x;
-		this.y += this.vel.y;
-	},
-	shoot: function(){
-		//you cant shoot if the delay isnt done yet
-		if (this.shootDelay > 0){
-			return;
-		}
-		
-		//play sound
-		sounds['laser'].volume = 0.02;
-		sounds['laser'].play();
-		
-		let laserLoc = this.getPoints()[0];
-		let newLaser = new Laser(laserLoc.x,laserLoc.y,20,10,this.ang,'rgb(42,255,0)');
-		lasers.push(newLaser);
-		
-		//generate particles
-		
-		
-		
-		for (let i = 0; i < 10; i++){
-			
-			//add a little variation in the particle's angle and speed
-			let extraAng = rand(Math.PI/12,-Math.PI/12);
-			let extraSpd = rand(2,-2);
-			//particle vector is speed of the particles relative to the ship
-			let particleVector = toComponents(5 + extraSpd,this.ang + extraAng);
-			
-			
-			//newVel combines the relative speed with the actual speed
-			let newVel = {
-				x:this.vel.x + particleVector.x,
-				y:this.vel.y + particleVector.y
-			}
-			
-			let newParticle = new Particle(laserLoc.x,laserLoc.y,1,'rgba(42,255,0,0.125)',newVel,10,false);
-			particles.push(newParticle);
-		}
-		this.shootDelay = this.delayMax;
-	}
-}
-
 function initialize(){
 	sounds['laser'] = new Audio('Laser.mp3');
 	sounds['laser'].volume = 0;
 	sounds['laser'].play();
 	
-	for (let i = 0; i < 30; i++){
+	for (let i = 0; i < 15; i++){
 		let velX = rand(1,-1);
 		let velY = rand(1,-1);
-		let newAsteroid = new Asteroid(rand(W-100,100),rand(H-100,100),rand(30,5),{x:velX,y:velY});
+        let radius = rand(30,5);
+        let velRot = rand(1/radius,-1/radius);
+        
+		let newAsteroid = new Asteroid(rand(W-100,100),rand(H-100,100),radius,{x:velX,y:velY,rot:velRot});
 		asteroids.push(newAsteroid);
 	}
 	
@@ -480,7 +349,7 @@ function controls(){
 		plr.blast();
 	}
 	if (keysDown[32]){ // space bar
-		if (sounds['laser'].ended){
+		if (plr.shootDelay === 0){
 			plr.shoot();
 		}
 	}
