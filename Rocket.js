@@ -65,7 +65,7 @@ function Asteroid(x,y,r,vel){
 	//returns an array of smaller asteroids
 	this.burst = function(){
 		//create 2-3 smaller asteroids
-		if (this.r <= 10){
+		if (this.r <= 12){
 			return [];
 		}
 		
