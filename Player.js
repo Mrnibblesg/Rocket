@@ -1,6 +1,6 @@
 let plr = {
-    x:500,
-    y:500,
+    pos: new Point(500,500),
+    
     vel: {
         x: 0,
         y: 0
@@ -25,9 +25,9 @@ let plr = {
     draw: function(){
         //the ship's corners
         let points = this.getPoints();
-        let point1 = points[0];
-        let point2 = points[1];
-        let point3 = points[2];
+        let point1 = points.p1;
+        let point2 = points.p2;
+        let point3 = points.p3;
         let drawCol = this.col.constructCol();
         
         
@@ -42,17 +42,16 @@ let plr = {
         c.beginPath();
         c.strokeStyle = 'white';
         c.fillStyle = drawCol;
-        c.moveTo(point1.x,point1.y);
-        c.lineTo(point2.x,point2.y);
-        c.lineTo(point3.x,point3.y);
-        c.lineTo(point1.x,point1.y);
+        c.moveTo(point1.getX(),point1.getY());
+        c.lineTo(point2.getX(),point2.getY());
+        c.lineTo(point3.getX(),point3.getY());
+        c.lineTo(point1.getX(),point1.getY());
         c.fill();
         c.stroke();
         c.closePath();
     },
     update: function(){
-        plr.x += plr.vel.x;
-        plr.y += plr.vel.y;
+       this.move();
         
         //Screen wrapping
         screenWrap(plr);
@@ -86,18 +85,20 @@ let plr = {
         this.maxInvinTimer = time;
     },
     
-    blastOff: function(){
-        this.vel.x += this.speed * Math.cos(this.ang);
-        this.vel.y += this.speed * Math.sin(this.ang);
+    blastOff: function(multiplier=1){
+        const finalSpd = multiplier * this.speed;
         
-        let location = pointOnCircle(this.x,this.y,this.r - 5,Math.PI + this.ang);
-        for (let i = 0; i < 3; i++){
+        this.vel.x += finalSpd * Math.cos(this.ang);
+        this.vel.y += finalSpd * Math.sin(this.ang);
+        
+        let location = pointOnCircle(this,this.r - 5,Math.PI + this.ang);
+        for (let i = 0; i < 3 * multiplier; i++){
             let vector = toComponents(2,this.ang);
             let velX = -vector.x + rand(0.5,-0.5) + this.vel.x;
             let velY = -vector.y + rand(0.5,-0.5) + this.vel.y;
             let color = 'rgba(255,250,0,1)';
             
-            let newParticle = new Particle(location.x,location.y,4,color,{x:velX,y:velY},50,true,
+            let newParticle = new Particle(location.getX(),location.getY(),4,color,{x:velX,y:velY},50,true,
             function(){
                 this.col.g = Math.floor(this.col.g/1.2);
             });
@@ -110,33 +111,37 @@ let plr = {
     },
     
     circleCollision: function(circle){
-        if (getDist(this.x,this.y,circle.x,circle.y) > this.r + circle.r){
+        if (getDist(this.getX(),this.getY(),circle.getX(),circle.getY()) > this.r + circle.r){
             return false;
         }
         //the ship's corners
         let points = this.getPoints();
-        let point1 = points[0];
-        let point2 = points[1];
-        let point3 = points[2];
+        let point1 = points.p1;
+        let point2 = points.p2;
+        let point3 = points.p3;
         
-        return (lineCircleCollision({x1:point1.x,y1:point1.y,x2:point2.x,y2:point2.y},circle) ||
-                lineCircleCollision({x1:point1.x,y1:point1.y,x2:point3.x,y2:point3.y},circle) ||
-                lineCircleCollision({x1:point2.x,y1:point2.y,x2:point3.x,y2:point3.y},circle));
+        return (lineCircleCollision({p1:point1, p2: point2},circle) ||
+                lineCircleCollision({p1:point1, p2: point3},circle) ||
+                lineCircleCollision({p1:point2, p2: point3},circle));
     },
     
     //first point is the front, 
     //second point is next point clockwise
     //third is next clockwise
     getPoints: function(){
-        return [
-            pointOnCircle(this.x,this.y,this.r,0 + this.ang),
-            pointOnCircle(this.x,this.y,this.r,5*Math.PI/6 + this.ang),
-            pointOnCircle(this.x,this.y,this.r,7*Math.PI/6 + this.ang)
-        ];
+        const point1 = pointOnCircle(this,this.r,0 + this.ang);
+        const point2 = pointOnCircle(this,this.r,5*Math.PI/6 + this.ang);
+        const point3 = pointOnCircle(this,this.r,7*Math.PI/6 + this.ang);
+        
+        return {
+            p1: point1,
+            p2: point2,
+            p3: point3
+        };
     },
     move: function(){
-        this.x += this.vel.x;
-        this.y += this.vel.y;
+        this.changeX(this.vel.x);
+        this.changeY(this.vel.y);
     },
     shoot: function(){
         //you cant shoot if the delay isnt done yet
@@ -148,8 +153,8 @@ let plr = {
         sounds['laser'].volume = 0.02;
         sounds['laser'].play();
         
-        let laserLoc = this.getPoints()[0];
-        let newLaser = new Laser(laserLoc.x,laserLoc.y,20,10,this.ang,'rgb(42,255,0)');
+        let laserLoc = this.getPoints().p1;
+        let newLaser = new Laser(laserLoc.getX(),laserLoc.getY(),20,10,this.ang,'rgb(42,255,0)');
         lasers.push(newLaser);
         
         //generate particles
@@ -175,5 +180,6 @@ let plr = {
             particles.push(newParticle);
         }
         this.shootDelay = this.delayMax;
-    }
+    },
 }
+posUtils(plr);
