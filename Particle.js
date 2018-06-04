@@ -3,7 +3,7 @@ function Particle(x,y,r,col,vel,life,smoothFade = true,specialFunc){
     posUtils(this);
     
     this.r = r;
-    this.col = Color.createFromRgba(col);//new Color(col);
+    this.col = Color.createFromRgba(col);
     this.vel = vel;
     this.maxLife = life;
     this.life = life;
@@ -17,6 +17,11 @@ function Particle(x,y,r,col,vel,life,smoothFade = true,specialFunc){
         drawCircle(this.getX(),this.getY(),this.r,color);
     };
     this.update = function(){
+        if (this.life <= 0){
+            return;
+        }
+        
+        
         //change position
         this.changeX(this.vel.x);
         this.changeY(this.vel.y);

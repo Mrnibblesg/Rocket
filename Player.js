@@ -17,6 +17,7 @@ let plr = {
     delayMax: 20,
     shootDelay: 0,
     
+    dead: false,
     lives: 3,
     invincible: false,
     maxInvinTimer: 0,
@@ -107,7 +108,15 @@ let plr = {
     },
     
     explode: function(){
-        
+        this.dead = true;
+        for (let i = 0; i < 50; i++){
+            let newParticle = new Particle(this.getX(),this.getY(),2,'rgba(0,0,255,1)',{x:rand(1,-1),y:rand(1,-1)},500,false);
+            particles.push(newParticle);
+        }
+        for (let i = 0; i < 30; i++){
+            let newParticle = new Particle(this.getX(),this.getY(),rand(5,3),'rgba(255,250,0,1)',{x:rand(5,-5),y:rand(5,-5)},50,true);
+            particles.push(newParticle);
+        }
     },
     
     circleCollision: function(circle){

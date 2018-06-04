@@ -11,6 +11,9 @@ const starscape = stars.getContext("2d");
 
 const W = 900;
 const H = 900;
+
+let gameOverTextDrawn = false;
+
 setSize(canvas);
 setSize(scoreBoard);
 setSize(stars);
@@ -32,8 +35,8 @@ function initialize(){
     sounds['laser'].play();
     
     for (let i = 0; i < 15; i++){
-        let velX = rand(1,-1);
-        let velY = rand(1,-1);
+        let velX = rand(2,-2);
+        let velY = rand(2,-2);
         let radius = rand(30,5);
         let velRot = rand(1/radius,-1/radius);
         
@@ -66,18 +69,26 @@ function loop(){
     for (let asteroid of asteroids){
         asteroid.draw();
     }
+    if (plr.dead && !gameOverTextDrawn){
+        gameOverTextDrawn = true;
+        starscape.font = "30px Verdana";
+        starscape.fillStyle = "white";
+        starscape.textBaseline = "center";
+        starscape.textAlign = "middle";
+        starscape.fillText("Game Over!",W/2,H/2)
+    }
     
+    if (!plr.dead)
     plr.draw();
     
     dis.updateValues();
     dis.draw();
-    
     update();
     requestAnimationFrame(loop);
 }
 
 function update(){
-    
+    if (!plr.dead)
     plr.update();
     
     for (let i = 0; i < particles.length; i++){
@@ -158,6 +169,9 @@ function outsideScreen(obj){
 
 //deals with controls
 function controls(){
+    if (plr.dead){
+        return
+    }
     const shiftPress = keysDown[16];
     if (keysDown[65]){ // 'a' key
         if (shiftPress) {plr.ang -= 0.025;}

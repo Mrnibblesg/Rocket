@@ -39,6 +39,33 @@ function Color(r,g,b,a=1){
         const hasAlpha = !(typeof this.a === 'number');
         return `rgba( ${this.r} , ${this.g} , ${this.b} , ${this.a})`;
     }
+    
+    this.nearbyColor = function(maxDistAway){
+        let newRed = this.r;
+        let newGreen = this.g;
+        let newBlue = this.b;
+        
+        const getRand = (col) => col += rand(maxDistAway,-maxDistAway);
+        getRand(newRed);
+        getRand(newGreen);
+        getRand(newBlue);
+        if (newRed > 255) {newRed = 255}
+        if (newGreen > 255) {newGreen = 255}
+        if (newBlue > 255) {newBlue = 255}
+        
+        if (newRed < 0) {newRed = 0}
+        if (newGreen < 0) {newGreen = 0}
+        if (newBlue < 0) {newBlue = 0}
+        return new Color(newRed,newGreen,newBlue);
+    }
+}
+
+
+Color.rgbToString = function(r,g,b){
+    return 'rgb(' + r + ',' + g + ',' + b + ')';
+}
+Color.rgbaToString = function(r,g,b,a){
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
 }
 
 //takes an rgb or rgba string, and returns a color object
@@ -56,13 +83,34 @@ Color.createFromRgba = function(rgba){
     }
     return new Color(r,g,b,a);
 }
-Color.rgbToString = function(r,g,b){
-    return 'rgb(' + r + ',' + g + ',' + b + ')';
-}
-Color.rgbaToString = function(r,g,b,a){
-    return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+
+Color.random = function(){
+    const r = Math.floor(Math.random()*256);
+    const g = Math.floor(Math.random()*256);
+    const b = Math.floor(Math.random()*256);
+    return new Color(r,g,b);
 }
 
+//returns a color that, for each r g or b value, can be maxDistAway from the original color.
+//ex: createRandomNearbyColor(50,75,100,15) would return a color object with r=47,g=90,b=85.
+Color.createRandomNearbyColor = function(r,g,b,maxDistAway){
+    const getRand = (col) => col += rand(maxDistAway,-maxDistAway);
+    getRand(r);
+    getRand(g);
+    getRand(b);
+    if (r > 255) {r = 255}
+    if (g > 255) {g = 255}
+    if (b > 255) {b = 255}
+    
+    if (r < 0) {r = 0}
+    if (g < 0) {g = 0}
+    if (b < 0) {b = 0}
+    
+    return new Color(r,g,b);
+}
+
+
+//creates a random bright color with any r, g, or b value greater than dimmest
 Color.randomBright = function(dimmest){
     const r = rand(255,dimmest);
     const g = rand(255,dimmest);

@@ -16,13 +16,13 @@ function Asteroid(x,y,r,vel){
     
     this.draw = function(){
         
-        /*Draw bounding collision circle for testing
-        c.beginPath();
+        //Draw bounding collision circle for testing
+        /* c.beginPath();
         c.fillStyle = 'white';
         c.arc(this.getX(),this.getY(),this.r,0,2*Math.PI);
         c.fill();
-        c.closePath();
-        */
+        c.closePath(); */
+       
         
         c.beginPath();
         c.fillStyle = this.col;

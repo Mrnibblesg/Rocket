@@ -20,7 +20,7 @@ let dis = {
         if (this.lives != this.prevLives){
             this.prevLives = this.lives;
             hud.clearRect(W-200,0,200,200);
-            hud.fillText('Lives: '+ this.lives,W-185,15);
+            hud.fillText('Life: '+ this.lives,W-185,15);
         }
     },
     updateValues: function(){
